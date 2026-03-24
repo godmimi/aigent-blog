@@ -12,49 +12,105 @@ GOOGLE_CLIENT_SECRET = os.environ['GOOGLE_CLIENT_SECRET']
 GOOGLE_REFRESH_TOKEN = os.environ['GOOGLE_REFRESH_TOKEN']
 BLOG_ID = os.environ['BLOG_ID']
 
+
 def get_access_token():
-    data = urllib.parse.urlencode({'grant_type':'refresh_token','refresh_token':GOOGLE_REFRESH_TOKEN,'client_id':GOOGLE_CLIENT_ID,'client_secret':GOOGLE_CLIENT_SECRET}).encode()
+    data = urllib.parse.urlencode({
+        'grant_type': 'refresh_token',
+        'refresh_token': GOOGLE_REFRESH_TOKEN,
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_CLIENT_SECRET
+    }).encode()
     req = urllib.request.Request('https://oauth2.googleapis.com/token', data=data)
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())['access_token']
 
+
 def get_trending_topics():
+    url = 'https://news.google.com/rss/search?q=Claude+AI+OR+AI+agent+OR+LLM+OR+Anthropic&hl=ko&gl=KR&ceid=KR:ko'
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
-        url = 'https://news.google.com/rss/search?q=Claude+AI+OR+LLM+OR+Anthropic&hl=ko&gl=KR&ceid=KR:ko'
-        req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=10) as resp:
-            root = ET.parse(resp).getroot()
-            return [i.find('title').text for i in root.findall('.//item')[:5] if i.find('title') is not None]
-    except:
-        return ['Claude AI 업데이트','AI 에이전트 활용','LLM 트렌드']
+            tree = ET.parse(resp)
+            root = tree.getroot()
+            items = root.findall('.//item')[:5]
+            return [item.find('title').text for item in items if item.find('title') is not None]
+    except Exception as e:
+        print(f"News fetch error: {e}")
+        return ["Claude AI latest update", "AI agent tips", "LLM trends"]
+
 
 def generate_post(topics):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    msg = client.messages.create(
-        model='claude-haiku-4-5-20251001',
+    topic_list = '\n'.join(f'- {t}' for t in topics)
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
         max_tokens=2000,
-        messages=[{'role':'user','content':f'AI 뉴스 토픽을 바탕으로 한국어 블로그 글을 HTML로 작성해줘. <h1>제목</h1>으로 시작, <h2><p> 태그 사용, 800자 이상.\\n토픽: {topics}'}]
+        messages=[{
+            "role": "user",
+            "content": f"""Write a Korean blog post based on these AI news trends.
+
+Topics:
+{topic_list}
+
+Requirements:
+- Title: SEO-optimized Korean title using <h1>title</h1> on first line
+- Length: 800-1000 characters
+- Audience: general public interested in AI/tech
+- Tone: friendly and professional
+- Structure: intro, body (2-3 sections), conclusion
+- End with 5 relevant hashtags
+
+Output ONLY pure HTML without any markdown code blocks. Start with <h1> tag, use <h2> and <p> tags."""
+        }]
     )
-    return msg.content[0].text
+    html = message.content[0].text.strip()
+    if html.startswith('```html'):
+        html = html[7:]
+    elif html.startswith('```'):
+        html = html[3:]
+    if html.endswith('```'):
+        html = html[:-3]
+    return html.strip()
 
-def extract_title(html):
+
+def extract_title(html_content):
     try:
-        return html[html.index('<h1>')+4:html.index('</h1>')].strip()
-    except:
-        return f'AI 트렌드 - {datetime.now().strftime("%Y.%m.%d")}'
+        start = html_content.index('<h1>') + 4
+        end = html_content.index('</h1>')
+        return html_content[start:end].strip()
+    except ValueError:
+        return f"AI Trend Report - {datetime.now().strftime('%Y.%m.%d')}"
 
-def post_to_blogger(tok, title, content):
+
+def post_to_blogger(access_token, title, content):
     url = f'https://www.googleapis.com/blogger/v3/blogs/{BLOG_ID}/posts/'
-    data = json.dumps({'kind':'blogger#post','title':title,'content':content,'labels':['AI','Claude','LLM']}).encode()
-    req = urllib.request.Request(url,data=data,headers={'Authorization':f'Bearer {tok}','Content-Type':'application/json'})
+    data = json.dumps({
+        'kind': 'blogger#post',
+        'title': title,
+        'content': content,
+        'labels': ['AI', 'Claude', 'LLM', 'tech']
+    }).encode()
+    req = urllib.request.Request(url, data=data, headers={
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    })
     with urllib.request.urlopen(req) as resp:
-        print('Posted:', json.loads(resp.read()).get('url','?'))
+        result = json.loads(resp.read())
+        print(f"Posted: {result.get('url', 'unknown')}")
+        return result
+
 
 def main():
+    print(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     topics = get_trending_topics()
-    html = generate_post(topics)
-    post_to_blogger(get_access_token(), extract_title(html), html)
-    print('Done!')
+    print(f"Topics: {len(topics)}")
+    html_content = generate_post(topics)
+    title = extract_title(html_content)
+    print(f"Title: {title}")
+    access_token = get_access_token()
+    post_to_blogger(access_token, title, html_content)
+    print("Done!")
+
 
 if __name__ == '__main__':
     main()
