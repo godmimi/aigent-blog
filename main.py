@@ -40,6 +40,12 @@ def get_trending_topics():
         return ["Claude AI", "AI agent", "LLM trends"]
 
 
+def get_image_url(topics):
+    keyword = topics[0].split()[0] if topics else "AI"
+    keyword = urllib.parse.quote(f"{keyword},artificial intelligence,technology")
+    return f"https://source.unsplash.com/1200x630/?{keyword}"
+
+
 def generate_post(topics):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     topic_list = '\n'.join(f'- {t}' for t in topics)
@@ -66,7 +72,14 @@ Output pure HTML only. Start with <h1>SEO title</h1>, use <h2><p> tags. 700-900 
             html = html[len(tag):]
     if html.endswith('```'):
         html = html[:-3]
-    return html.strip()
+    html = html.strip()
+
+    # Insert image after </h1>
+    image_url = get_image_url(topics)
+    img_tag = f'<img src="{image_url}" alt="AI technology" style="width:100%;max-width:1200px;height:auto;margin:20px 0;border-radius:8px;" />'
+    html = html.replace('</h1>', f'</h1>\n{img_tag}', 1)
+
+    return html
 
 
 def extract_title(html_content):
