@@ -62,7 +62,13 @@ def get_access_token():
 
 def get_image_url(keyword):
     prompt = urllib.parse.quote(f"{keyword}, anime style, digital illustration, futuristic, vibrant colors")
-    return f"https://image.pollinations.ai/prompt/{prompt}?width=1200&height=630&model=flux-anime&nologo=true"
+    url = f"https://image.pollinations.ai/prompt/{prompt}?width=1200&height=630&model=flux-anime&nologo=true"
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        urllib.request.urlopen(req, timeout=60)
+    except Exception as e:
+        print(f"Image preload: {e}")
+    return url
 
 
 def generate_post(content, source_url):
