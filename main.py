@@ -41,8 +41,9 @@ def get_trending_topics():
 
 
 def get_image_url(topics):
-    seed = urllib.parse.quote(topics[0].split()[0] if topics else "AI")
-    return f"https://picsum.photos/seed/{seed}/1200/630"
+    keyword = ' '.join(topics[0].split()[:4]) if topics else "artificial intelligence"
+    prompt = urllib.parse.quote(f"{keyword}, anime style, digital illustration, futuristic, vibrant colors")
+    return f"https://image.pollinations.ai/prompt/{prompt}?width=1200&height=630&model=flux-anime&nologo=true"
 
 
 def generate_post(topics):
