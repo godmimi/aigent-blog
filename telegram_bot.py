@@ -95,10 +95,13 @@ def generate_post(content, source_url):
 {content}
 
 Style rules (follow strictly):
-- Open with a relatable reader pain point or "have you ever..." scenario
-- Friendly, conversational "you" tone — like a knowledgeable friend explaining, not a textbook
-- Short sentences. No jargon unless explained.
-- Structure: Hook paragraph → What changed/why it matters → 2-3 practical numbered steps or use cases → "Common Mistakes" section (2 mistakes + fixes) → "Pro Tips" section (2 tips) → Upbeat CTA closing paragraph
+- Title: short and punchy, max 8 words, no colons
+- Open with a relatable "have you ever..." hook
+- Friendly, conversational "you" tone. Short paragraphs (max 3 lines).
+- Use icons instead of numbers: 🔹 for steps, ✅ for pros, ❌ for cons/mistakes, 💡 for tips
+- Include one comparison or summary <table> with 2-3 columns
+- Structure: Hook → What changed → 3 key points (with icons) → Mistakes (❌) → Tips (💡) → TL;DR summary box → CTA
+- TL;DR box: <div style="background:#f0f4ff;padding:16px;border-radius:8px;margin:20px 0"><strong>TL;DR</strong><br>3 bullet points max</div>
 - End with 5 hashtags
 
 Output pure HTML only. Start with <h1>SEO title</h1>, use <h2><p> tags. 700-900 words. No code blocks."""
