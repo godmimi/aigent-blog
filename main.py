@@ -26,7 +26,7 @@ def get_access_token():
 
 
 def get_trending_topics():
-    url = 'https://news.google.com/rss/search?q=Claude+AI+OR+AI+agent+OR+LLM+OR+Anthropic&hl=en&gl=US&ceid=US:en'
+    url = 'https://news.google.com/rss/search?q=Claude+AI+OR+AI+에이전트+OR+LLM+OR+Anthropic&hl=ko&gl=KR&ceid=KR:ko'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -55,19 +55,19 @@ def get_image_url(topics):
 def generate_post(topics):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     topic_list = '\n'.join(f'- {t}' for t in topics)
-    prompt = f"""Write an English blog post based on these AI news topics:
+    prompt = f"""다음 AI 뉴스 토픽을 바탕으로 한국어 블로그 글을 작성해줘:
 {topic_list}
 
-Style rules (follow strictly):
-- Title: short and punchy, max 8 words, no colons
-- Open with a relatable "have you ever..." hook
-- Friendly, conversational "you" tone. Short paragraphs (max 3 lines).
-- Use icons instead of numbers: 🔹 for steps, ✅ for pros, ❌ for cons/mistakes, 💡 for tips
-- Include one comparison or summary <table> with 2-3 columns
-- Structure: Hook → What changed → 3 key points (with icons) → Mistakes (❌) → Tips (💡) → TL;DR summary box → CTA → 5 hashtags
-- TL;DR box: <div style="background:#f0f4ff;padding:16px;border-radius:8px;margin:20px 0"><strong>TL;DR</strong><br>3 bullet points max</div>
+스타일 규칙 (반드시 따를 것):
+- 제목: 짧고 임팩트 있게, 최대 8단어, 콜론 없이
+- "혹시 이런 경험 있으신가요?" 식의 공감 훅으로 시작
+- 친근하고 대화체로. 단락은 최대 3줄.
+- 번호 대신 아이콘 사용: 🔹 단계, ✅ 장점, ❌ 실수/단점, 💡 팁
+- 비교 또는 요약 <table> 1개 포함 (2~3열)
+- 구조: 훅 → 핵심 내용 → 주요 포인트 3개(아이콘) → 실수(❌) → 팁(💡) → 핵심요약 박스 → CTA → 해시태그 5개
+- 핵심요약 박스: <div style="background:#f0f4ff;padding:16px;border-radius:8px;margin:20px 0"><strong>핵심 요약</strong><br>3줄 이내</div>
 
-Output pure HTML only. Start with <h1>title</h1>, use <h2><p> tags. 700-900 words. No code blocks."""
+순수 HTML만 출력. <h1>제목</h1>으로 시작, <h2><p> 태그 사용. 700~900자. 코드블록 없이."""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
