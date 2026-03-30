@@ -53,7 +53,7 @@ def generate_image_prompt(client, title, summary):
 
 def get_image_base64(prompt):
     clean = urllib.parse.quote(prompt)
-    poll_url = f"https://image.pollinations.ai/prompt/{clean}?width=800&height=420&model=flux-anime&nologo=true"
+    poll_url = f"https://image.pollinations.ai/prompt/{clean}?width=800&height=420&model=flux&nologo=true"
     for url in [poll_url, "https://picsum.photos/800/420"]:
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -113,11 +113,13 @@ USER_PROMPT_TEMPLATE = """다음 주제로 한국어 블로그 글을 HTML 형�
 
 def generate_post(topics):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    topic_list = '\n'.join(f'- {t}' for t in topics)
-    user_prompt = USER_PROMPT_TEMPLATE.format(topic=topic_list)
+    main_topic = topics[0] if topics else "AI 자동화"
+    ref_topics = ', '.join(topics[1:3]) if len(topics) > 1 else ""
+    topic_str = main_topic + (f" (관련 트렌드: {ref_topics})" if ref_topics else "")
+    user_prompt = USER_PROMPT_TEMPLATE.format(topic=topic_str)
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         max_tokens=3000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}]
