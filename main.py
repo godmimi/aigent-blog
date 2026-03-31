@@ -76,7 +76,7 @@ def get_image_base64(prompt):
     try:
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash-preview-image-generation",
+            model="gemini-2.5-flash-image",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"]
