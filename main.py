@@ -35,7 +35,13 @@ def get_trending_topics():
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            tree = ET.parse(resp)
+            raw = resp.read()
+            try:
+                content = raw.decode('utf-8')
+            except UnicodeDecodeError:
+                content = raw.decode('utf-8', errors='ignore')
+            import io
+            tree = ET.parse(io.StringIO(content))
             root = tree.getroot()
             items = root.findall('.//item')[:5]
             topics = [item.find('title').text for item in items if item.find('title') is not None]
@@ -70,7 +76,7 @@ def get_image_base64(prompt):
     try:
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash-exp-image-generation",
+            model="gemini-2.0-flash-preview-image-generation",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"]
