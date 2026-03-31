@@ -31,7 +31,15 @@ def get_access_token():
 
 
 def get_trending_topics():
-    url = 'https://news.google.com/rss/search?q=Claude+AI+OR+AI+에이전트+OR+LLM+OR+Anthropic&hl=ko&gl=KR&ceid=KR:ko'
+    queries = [
+        'Claude+AI+OR+Anthropic+OR+AI+에이전트',
+        'LLM+OR+GPT+OR+AI+코딩+OR+바이브코딩',
+        'AI+자동화+OR+AI+툴+OR+생성형+AI',
+        'Gemini+OR+Cursor+OR+AI+개발+OR+노코드',
+    ]
+    import random
+    query = random.choice(queries)
+    url = f'https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -45,10 +53,17 @@ def get_trending_topics():
             root = tree.getroot()
             items = root.findall('.//item')[:5]
             topics = [item.find('title').text for item in items if item.find('title') is not None]
-            return topics
+            print(f"뉴스 수집 성공: {len(topics)}개 ({query})")
+            return topics if topics else ["Claude AI", "AI 자동화", "LLM 활용법"]
     except Exception as e:
         print(f"News fetch error: {e}")
-        return ["Claude AI", "AI agent", "LLM trends"]
+        fallbacks = [
+            ["Claude AI 에이전트 활용법", "AI 자동화 워크플로우", "LLM 프롬프트 엔지니어링"],
+            ["Gemini API 활용법", "AI 코딩 도구 비교", "바이브코딩 실전 가이드"],
+            ["노코드 AI 자동화", "ChatGPT vs Claude 비교", "AI 생산성 툴 추천"],
+            ["Cursor AI 사용법", "AI 에이전트 구축", "LLM 비용 절감 방법"],
+        ]
+        return random.choice(fallbacks)
 
 
 def generate_image_prompt(client, title, summary):
