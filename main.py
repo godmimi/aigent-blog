@@ -33,10 +33,14 @@ def get_access_token():
 def get_trending_topics():
     import random
     queries = [
-        'Claude+AI+OR+Anthropic+OR+AI+에이전트',
-        'LLM+OR+GPT+OR+AI+코딩+OR+바이브코딩',
-        'AI+자동화+OR+AI+툴+OR+생성형+AI',
-        'Gemini+OR+Cursor+OR+AI+개발+OR+노코드',
+        'ChatGPT+사용법+OR+AI+시작하기+OR+AI+초보',
+        '바이브코딩+OR+요즘+AI+OR+코딩+없이+앱',
+        'AI+업무+활용+OR+AI+생산성+OR+직장인+AI',
+        'ChatGPT+vs+Claude+OR+AI+툴+비교+OR+AI+추천',
+        'AI+이미지+생성+OR+AI+그림+OR+미드저니+한국어',
+        'Claude+설치+OR+Claude+사용법+OR+Anthropic+시작',
+        'LLM+꾸네팅+OR+AI+프롬프트+작성+OR+AI+활용법',
+        'AI+자동화+OR+업무+자동화+OR+스마트워크',
     ]
     query = random.choice(queries)
     url = f'https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko'
@@ -58,10 +62,14 @@ def get_trending_topics():
     except Exception as e:
         print(f"News fetch error: {e}")
         fallbacks = [
-            ["Claude AI 에이전트 활용법", "AI 자동화 워크플로우", "LLM 프롬프트 엔지니어링"],
-            ["Gemini API 활용법", "AI 코딩 도구 비교", "바이브코딩 실전 가이드"],
-            ["노코드 AI 자동화", "ChatGPT vs Claude 비교", "AI 생산성 툴 추천"],
-            ["Cursor AI 사용법", "AI 에이전트 구축", "LLM 비용 절감 방법"],
+            ["ChatGPT 처음 시작하는 법", "일반인을 위한 AI 사용법", "AI로 업무 시간 줄이기"],
+            ["바이브코딩으로 앱 만들기", "코딩 모르는 다도 AI로 개발하기", "노코드 AI 도구 추천"],
+            ["Claude vs ChatGPT 비교", "AI 툴 선택 방법", "2026년 AI 코핑 알감"],
+            ["AI 이미지 생성 무료로 시작하기", "AI 그림 만드는 법", "미드저니 한국어 사용법"],
+            ["Claude 설치부터 시작하기", "스마트폰으로 Claude 쓰는 법", "Anthropic 무료 플랜 활용법"],
+            ["LLM 꾸네팅 10가지", "AI 프롬프트 잘 쓰는 법", "ChatGPT 활용 놓치고 있는 기능"],
+            ["직장인을 위한 AI 툴 추천", "AI로 보고서 작성하기", "회의록 AI 자동 요약"],
+            ["컨텐츠 AI 자동 제작", "블로그 AI로 운영하기", "SNS 콘텐츠 AI 자동화"],
         ]
         return random.choice(fallbacks)
 
