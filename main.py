@@ -31,13 +31,13 @@ def get_access_token():
 
 
 def get_trending_topics():
+    import random
     queries = [
         'Claude+AI+OR+Anthropic+OR+AI+에이전트',
         'LLM+OR+GPT+OR+AI+코딩+OR+바이브코딩',
         'AI+자동화+OR+AI+툴+OR+생성형+AI',
         'Gemini+OR+Cursor+OR+AI+개발+OR+노코드',
     ]
-    import random
     query = random.choice(queries)
     url = f'https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -67,7 +67,6 @@ def get_trending_topics():
 
 
 def generate_image_prompt(client, title, summary):
-    """글 내용 기반 인포그래픽 이미지 프롬프트 생성 (Haiku 유지)"""
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=80,
@@ -106,7 +105,7 @@ def get_image_base64(prompt):
                 return f"data:{mime};base64,{b64}"
         raise Exception("이미지 파트 없음")
     except Exception as e:
-        print(f"Gemini 이미지 생성 실패: {e}")
+        print(f"Gemini 이미지 생성 실패: {type(e).__name__}: {e}")
         return None
 
 
@@ -126,13 +125,18 @@ HTML:
 4. 카드/단계 설명은 핵심만 간결하게. 한 항목에 4줄 이상 넣지 마.
 5. 도입부는 문장 하나당 <p> 태그 하나씩 분리해.
 
-제목 형식 규칙:
+[제목 형식 규칙]
 - [핵심 주제] [N단계/N가지] - [결과나 혜택] [이모지] [2026년]
-- 예시: Claude AI 에이전트 5단계 - 업무 생산성 200% 올리는 법 🚀 [2026년]
-- 예시: 구글 Gemini 3가지 활용법 - 무료로 이미지 자동화하기 ⚡ [2026년]
-- 이모지는 주제에 맞게 선택 (🚀 ⚡ 💡 🔥 ✅ 🎯 중 하나)
+- N은 주제에 따라 3~7 사이에서 자유롭게 결정해. 5로 고정하지 마.
+- 결과/혜택 표현을 매번 다양하게 써:
+  예) 완전 정복하기, 무료로 시작하기, 10분 만에 세팅하기,
+      비용 절반으로 줄이기, 초보자도 바로 쓰는 법,
+      실전 적용 가이드, 완벽 세팅법, 한 번에 끝내기,
+      업무 자동화 완성하기, 생산성 극대화하기
+- 이모지는 매번 다르게 선택 (🚀 ⚡ 💡 🔥 ✅ 🎯 🛠️ 📌 중 하나)
 - 반드시 하이픈(-)으로 앞뒤 구분
-- 끝에 반드시 [2026년] 포함"""
+- 끝에 반드시 [2026년] 포함
+- 같은 패턴 반복 금지. 매번 신선한 제목 만들기."""
 
 USER_PROMPT_TEMPLATE = """다음 주제로 한국어 블로그 글을 HTML 형식으로 작성해줘.
 
@@ -145,13 +149,13 @@ HTML:
 
 <p style="font-size:15px;line-height:1.8;color:#1e293b;margin:0 0 16px;">안녕하세요, AI 소식을 전해드리는 Geez 입니다😊</p>
 
-<div style="border-left:3px solid #2563EB;padding:12px 16px;background:#f8fafc;margin-bottom:24px;">
-<p style="font-size:14px;color:#1e293b;line-height:1.7;margin:0;">💡 <strong>핵심 포인트</strong> — [한 문장 핵심 요약]</p>
-</div>
-
 <p style="font-size:15px;line-height:1.8;color:#1e293b;margin:0 0 8px;">[~하고 있지 않으신가요? 공감형 첫 문장]</p>
 <p style="font-size:15px;line-height:1.8;color:#1e293b;margin:0 0 8px;">[두 번째 문장]</p>
 <p style="font-size:15px;line-height:1.8;color:#1e293b;margin:0 0 24px;">[본문 연결 문장]</p>
+
+<div style="border-left:3px solid #2563EB;padding:12px 16px;background:#f8fafc;margin-bottom:24px;">
+<p style="font-size:14px;color:#1e293b;line-height:1.7;margin:0;">💡 <strong>핵심 포인트</strong> — [한 문장 핵심 요약]</p>
+</div>
 
 <div style="border:0.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:28px;">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;">
