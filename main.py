@@ -91,7 +91,7 @@ def generate_manga_prompt(client, title, intro_text):
 도입부: {intro_text[:300]}
 
 아래 형식으로 정확히 출력해 (다른 말 없이):
-PROMPT: [Gemini용 영어 이미지 프롬프트. 2-panel horizontal black and white manga. Panel 1: character with confused/puzzled expression. Panel 2: character with happy/excited expression. Short-haired female character. No speech bubbles. No text in image at all.]
+PROMPT: [Gemini용 영어 이미지 프롬프트. 2-panel horizontal black and white manga. Panel 1: character with confused/puzzled expression. Panel 2: character with happy/excited expression. Young boy character with medium-length black hair, black and white manga art style. No speech bubbles. No text in image at all.]
 TEXT1: [1컷 말풍선 한국어 텍스트, 최대 12자]
 TEXT2: [2컷 말풍선 한국어 텍스트, 최대 12자]"""}]
     )
@@ -145,7 +145,7 @@ def generate_manga_image(prompt, character_bytes=None):
                 types.Part.from_text(
                     text=f"{prompt}\n\n"
                     "스타일 규칙:\n"
-                    "- 단발머리 귀여운 여성 캐릭터\n"
+                    "- young boy with medium-length black hair, black and white manga art style\n"
                     "- 흑백 만화 스타일, 선명한 검은 선\n"
                     "- 두 컷을 가로로 나란히 배치\n"
                     "- do NOT draw any speech bubbles or text in the image\n"
