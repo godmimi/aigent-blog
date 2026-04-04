@@ -81,7 +81,7 @@ def get_trending_topics():
 
 
 def generate_manga_prompt(client, title, intro_text):
-    """도입부 내용 기반 2컷 만화 프롬프트 및 말풍선 텍스트 생성"""
+    """도입부 내용 기반 2컷 만화 프롬프트 생성"""
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=300,
@@ -91,21 +91,18 @@ def generate_manga_prompt(client, title, intro_text):
 도입부: {intro_text[:300]}
 
 아래 형식으로 정확히 출력해 (다른 말 없이):
-PROMPT: [Gemini용 영어 이미지 프롬프트. 2-panel horizontal black and white manga. Panel 1: character with confused/puzzled expression. Panel 2: character with happy/excited expression. Young boy character with medium-length black hair, black and white manga art style. No speech bubbles. No text in image at all.]
-TEXT1: [1컷 말풍선 한국어 텍스트, 최대 12자]
-TEXT2: [2컷 말풍선 한국어 텍스트, 최대 12자]"""}]
+PROMPT: [Gemini용 영어 이미지 프롬프트.
+2-panel horizontal black and white manga.
+Panel 1: short-haired girl looking confused/troubled.
+Panel 2: same girl with happy/excited expression.
+No microphone. No speech bubbles. No text.
+Express emotions through facial expressions and body language only.
+Black and white manga art style, clean lines.]"""}]
     )
     raw = msg.content[0].text.strip()
 
-    prompt_match = re.search(r"PROMPT:\s*(.+)", raw)
-    text1_match = re.search(r"TEXT1:\s*(.+)", raw)
-    text2_match = re.search(r"TEXT2:\s*(.+)", raw)
-
-    prompt = prompt_match.group(1).strip() if prompt_match else "2-panel black and white manga comic strip, no speech bubbles"
-    text1 = text1_match.group(1).strip() if text1_match else "어떻게 하지...?"
-    text2 = text2_match.group(1).strip() if text2_match else "오! 이거다!"
-
-    return prompt, text1, text2
+    prompt_match = re.search(r"PROMPT:\s*([\s\S]+)", raw)
+    return prompt_match.group(1).strip() if prompt_match else "2-panel black and white manga comic strip, no speech bubbles"
 
 
 def load_character_image():
@@ -132,7 +129,7 @@ def generate_manga_image(prompt, character_bytes=None):
                 types.Part.from_text(
                     text=f"{prompt}\n\n"
                     "스타일 규칙:\n"
-                    "- 위 캐릭터 이미지를 레퍼런스로 사용해서 캐릭터를 최대한 비슷하게 그려줘\n"
+                    "- 위 이미지의 캐릭터 외모(단발머리, 얼굴형)만 레퍼런스로 사용해줘. 마이크나 특정 소품은 따라 그리지 마.\n"
                     "- 흑백 만화 스타일, 선명한 검은 선\n"
                     "- 두 컷을 가로로 나란히 배치\n"
                     "- do NOT draw any speech bubbles or text in the image\n"
@@ -171,59 +168,6 @@ def generate_manga_image(prompt, character_bytes=None):
         print(f"Gemini 이미지 생성 실패: {type(e).__name__}: {e}")
         return None, None
 
-
-def add_korean_text_to_manga(image_bytes, text1, text2):
-    from PIL import Image, ImageDraw, ImageFont
-
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
-    width, height = img.size
-
-    # 상단에 말풍선 전용 영역 추가
-    bubble_area_h = max(80, height // 5)
-    new_img = Image.new("RGBA", (width, height + bubble_area_h), "white")
-    new_img.paste(img, (0, bubble_area_h))
-    draw = ImageDraw.Draw(new_img)
-
-    font_size = max(20, bubble_area_h // 3)
-    font = ImageFont.load_default()
-    for fp in [
-        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-    ]:
-        try:
-            font = ImageFont.truetype(fp, font_size)
-            break
-        except Exception:
-            continue
-
-    panel_w = width // 2
-    border = 4
-
-    # 패널 구분선
-    draw.rectangle(
-        [panel_w - border, bubble_area_h, panel_w + border, height + bubble_area_h],
-        fill='black'
-    )
-
-    def draw_bubble(cx, cy, text):
-        bbox = draw.textbbox((0, 0), text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        pad = 16
-        bx0 = max(4, cx - tw // 2 - pad)
-        by0 = max(4, cy - th // 2 - pad)
-        bx1 = min(width - 4, cx + tw // 2 + pad)
-        by1 = min(bubble_area_h - 4, cy + th // 2 + pad)
-        draw.rounded_rectangle([bx0, by0, bx1, by1],
-            radius=14, fill='white', outline='black', width=3)
-        draw.text((cx - tw // 2, cy - th // 2), text, fill='black', font=font)
-
-    cy = bubble_area_h // 2
-    draw_bubble(panel_w // 2, cy, text1)
-    draw_bubble(panel_w + panel_w // 2, cy, text2)
-
-    output = io.BytesIO()
-    new_img.convert("RGB").save(output, format='PNG')
-    return output.getvalue()
 
 
 def upload_to_imgbb(image_bytes):
@@ -463,15 +407,13 @@ def generate_post(topics):
     else:
         print("캐릭터 이미지 없음 — 기본 스타일로 생성")
 
-    manga_prompt, text1, text2 = generate_manga_prompt(client, title, intro_text)
+    manga_prompt = generate_manga_prompt(client, title, intro_text)
     print(f"만화 프롬프트: {manga_prompt}")
-    print(f"말풍선: [{text1}] / [{text2}]")
 
     image_bytes, mime_type = generate_manga_image(manga_prompt, character_bytes)
 
     image_url = None
     if image_bytes:
-        image_bytes = add_korean_text_to_manga(image_bytes, text1, text2)
         image_url = upload_to_imgbb(image_bytes)
         if image_url:
             img_tag = f'<img src="{image_url}" alt="{title}" style="width:100%;max-width:800px;height:auto;margin:0 0 28px;border-radius:10px;" />'
