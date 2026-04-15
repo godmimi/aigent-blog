@@ -2,6 +2,6 @@ anthropic
 google-generativeai
 google-api-python-client
 google-auth
-python-telegram-bot
 requests
 beautifulsoup4
+notion-client
