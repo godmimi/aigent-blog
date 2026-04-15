@@ -1,103 +1,100 @@
 import os
-import logging
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+import re
+import json
+import urllib.request
+import urllib.parse
+from main import generate_post, fetch_x_content
 
-from main import fetch_x_content, generate_post
-from image import generate_image, upload_user_image
-from blogger import post_to_blogger
-
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-ALLOWED_USER_ID = int(os.environ.get("ALLOWED_USER_ID", "0"))  # 민욱 본인만 허용
-
-logging.basicConfig(level=logging.INFO)
+TELEGRAM_TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
+TELEGRAM_CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
 
 
 # ──────────────────────────────────────────
-# 메시지 핸들러
+# Telegram API
 # ──────────────────────────────────────────
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ALLOWED_USER_ID:
-        return
 
-    message = update.message
-    text = message.text or message.caption or ""
-    photo = message.photo
+def tg(method, **params):
+    data = json.dumps(params).encode()
+    req = urllib.request.Request(
+        f'https://api.telegram.org/bot{TELEGRAM_TOKEN}/{method}',
+        data=data,
+        headers={'Content-Type': 'application/json'}
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
 
-    # X 링크 추출
-    x_url = extract_x_url(text)
-    if not x_url:
-        await message.reply_text("❌ X 링크를 찾을 수 없어요. x.com 또는 twitter.com 링크를 보내주세요.")
-        return
 
-    await message.reply_text("🔍 X 내용 분석 중...")
+def send(text):
+    tg('sendMessage', chat_id=TELEGRAM_CHAT_ID, text=text[:4000])
 
-    # 1. X 내용 가져오기
-    x_content = fetch_x_content(x_url)
-    if not x_content:
-        x_content = text.replace(x_url, "").strip()  # 링크 제외한 텍스트 fallback
 
-    if not x_content:
-        await message.reply_text("⚠️ X 내용을 가져오지 못했어요. 링크 + 내용을 함께 보내주세요.")
-        return
-
-    await message.reply_text("✍️ 블로그 글 작성 중...")
-
-    # 2. 블로그 글 생성
+def get_updates():
     try:
-        post = generate_post(x_content, x_url)
+        result = tg('getUpdates', timeout=5)
+        return result.get('result', [])
     except Exception as e:
-        await message.reply_text(f"❌ 글 생성 실패: {e}")
+        print(f"getUpdates 실패: {e}")
+        return []
+
+
+def acknowledge(updates):
+    if not updates:
         return
-
-    # 3. 이미지 처리
-    await message.reply_text("🖼️ 이미지 준비 중...")
-    image_url = ""
-
-    if photo:
-        # 사용자가 이미지 직접 첨부한 경우
-        file = await photo[-1].get_file()
-        image_bytes = await file.download_as_bytearray()
-        image_url = upload_user_image(bytes(image_bytes))
-    else:
-        # Gemini로 이미지 생성
-        image_url = generate_image(post["title"])
-
-    # 4. Blogger 포스팅
-    await message.reply_text("📤 블로그 포스팅 중...")
-    try:
-        post_url = post_to_blogger(
-            title=post["title"],
-            html_content=post["html_content"],
-            image_url=image_url,
-            labels=post["labels"]
-        )
-        await message.reply_text(
-            f"✅ 포스팅 완료!\n\n"
-            f"📝 제목: {post['title']}\n"
-            f"🔗 링크: {post_url}"
-        )
-    except Exception as e:
-        await message.reply_text(f"❌ 포스팅 실패: {e}")
+    max_id = max(u['update_id'] for u in updates)
+    tg('getUpdates', offset=max_id + 1, timeout=0)
 
 
-def extract_x_url(text: str) -> str:
-    """텍스트에서 X URL 추출"""
-    import re
-    match = re.search(r"https?://(x\.com|twitter\.com)/\S+", text)
-    return match.group(0) if match else ""
+def strip_html(html):
+    return re.sub(r'<[^>]+>', '', html).strip()
 
 
 # ──────────────────────────────────────────
-# 봇 실행
+# 메인
 # ──────────────────────────────────────────
+
 def main():
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, handle_message))
-    print("✅ 봇 시작됨")
-    app.run_polling()
+    updates = get_updates()
+    if not updates:
+        print("새 메시지 없음")
+        return
+
+    acknowledge(updates)
+
+    for update in updates:
+        msg = update.get('message', {})
+        chat_id = str(msg.get('chat', {}).get('id', ''))
+        text = msg.get('text', '').strip()
+
+        if chat_id != TELEGRAM_CHAT_ID:
+            continue
+        if len(text) < 30:
+            continue
+
+        # URL이면 크롤링
+        if re.match(r'https?://', text):
+            send("🔍 URL 분석 중...")
+            content = fetch_x_content(text)
+            url = text
+            if not content:
+                send("⚠️ 내용을 가져오지 못했어요. 텍스트를 직접 붙여넣어 주세요.")
+                continue
+        else:
+            content = text
+            url = ''
+
+        send("✍️ 글 생성 중...")
+
+        try:
+            result = generate_post(content, url, 'auto')
+        except Exception as e:
+            send(f"❌ 글 생성 실패: {e}")
+            continue
+
+        # 미리보기 전송
+        plain = strip_html(result['html_content'])
+        send(f"📝 {result['title']}\n\n{plain[:1000]}")
+        break
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
