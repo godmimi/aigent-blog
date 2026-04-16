@@ -4,8 +4,8 @@ import anthropic
 import requests
 from bs4 import BeautifulSoup
 
-CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
-client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 # ──────────────────────────────────────────
@@ -13,7 +13,6 @@ client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 # ──────────────────────────────────────────
 def fetch_x_content(url: str) -> str:
     """X(트위터) 링크에서 텍스트 추출. 실패 시 빈 문자열 반환."""
-    # nitter 미러로 우선 시도
     tweet_id = extract_tweet_id(url)
     if tweet_id:
         for mirror in ["https://nitter.privacydev.net", "https://nitter.poast.org"]:
@@ -28,11 +27,9 @@ def fetch_x_content(url: str) -> str:
             except Exception:
                 continue
 
-    # 직접 페이지 텍스트 시도 (fallback)
     try:
         r = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(r.text, "html.parser")
-        # og:description 메타태그
         meta = soup.find("meta", property="og:description")
         if meta:
             return meta.get("content", "")
@@ -43,7 +40,6 @@ def fetch_x_content(url: str) -> str:
 
 
 def extract_tweet_id(url: str) -> str:
-    """URL에서 트윗 ID 추출"""
     match = re.search(r"/status/(\d+)", url)
     return match.group(1) if match else ""
 
@@ -65,19 +61,20 @@ def generate_post(x_content: str, x_url: str, post_type: str = "auto") -> dict:
         prompt = build_prompt_c(x_content, x_url)
 
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
     raw = response.content[0].text
-    return parse_response(raw)
+    result = parse_response(raw)
+    result["title"] = generate_title(result["html_content"])
+    return result
 
 
 def classify_type(content: str) -> str:
     """Haiku로 A/B/C 타입 분류"""
-    haiku = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    resp = haiku.messages.create(
+    resp = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=10,
         messages=[{
@@ -110,11 +107,33 @@ COMMON_RULES = """
 <CONTENT>HTML 본문 전체</CONTENT>
 """
 
-def build_prompt_a(content: str, url: str) -> str:
-    return f"""다음 X 게시물을 바탕으로 A타입 블로그 포스트를 작성해.
-A타입 형식: [주제] N단계 - 지금 당장 써먹기
 
-X 내용: {content}
+def generate_title(post_content: str) -> str:
+    """생성된 글 내용 기반으로 제목 생성"""
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=100,
+        messages=[{"role": "user", "content": f"""
+다음 블로그 글에 가장 어울리는 제목 1개를 만들어.
+
+규칙:
+- 독자 입장에서 "나한테 뭐가 달라지냐"가 바로 보일 것
+- 단순 팩트 나열이나 "더 좋아졌다" 식은 피할 것
+- 바뀐 것, 달라진 것, 가능해진 것을 자연스럽게 담을 것
+- 뒷부분이 결론으로 끝나는 구조 선호
+- 이모지, 연도 없음
+- 억지로 숫자/형식 맞추지 말 것
+
+글 내용: {post_content[:500]}
+"""}]
+    )
+    return resp.content[0].text.strip()
+
+
+def build_prompt_a(content: str, url: str) -> str:
+    return f"""다음 내용을 바탕으로 A타입 블로그 포스트를 작성해.
+
+내용: {content}
 원문 링크: {url}
 
 HTML 구조:
@@ -127,24 +146,43 @@ HTML 구조:
 
 
 def build_prompt_b(content: str, url: str) -> str:
-    return f"""다음 X 게시물을 바탕으로 B타입 블로그 포스트를 작성해.
-B타입 형식: [이슈] N가지 - 팩트만 체크하기
+    return f"""다음 내용을 바탕으로 B타입 블로그 포스트를 작성해.
 
-X 내용: {content}
+내용: {content}
 원문 링크: {url}
 
-HTML 구조:
-1. 팩트체크 섹션 (✅사실 / ❌오해 / ❓미확인 배지)
-2. 분석 카드 4개: 무슨 일이 있었나 / 왜 중요한가 / 나에게 미치는 영향 / 지금 당장 할 것
+---
+
+HTML 구조와 작성 규칙:
+
+[헤드라인]
+- 첫 문장: 언제, 누가, 무엇을 했는지 팩트 한 줄
+- 핵심 변화들: 줄바꿈으로 나열
+- 마지막 문장: 독자에게 의미있는 한 줄
+- 틀에 맞추지 말고 내용에 따라 자연스럽게
+
+[팩트체크]
+- ✅ 사실: 독자가 "진짜야?" 싶을 만한 것만
+- ❌ 오해: 독자가 실제로 잘못 알고 있을 가능성이 높은 것만
+- 미확인 항목 없음
+- 각 항목은 짧고 간결하게
+- 억지로 개수 채우지 말 것
+
+[이슈 분석]
+소제목 3개: 무슨 일이 있었나 / 왜 중요한가 / 우리에게 미치는 영향
+- 소제목 다음 줄부터 내용 시작
+- 헤드라인과 팩트체크에서 이미 나온 내용은 반복하지 말 것
+- "왜 이게 중요한가", "그래서 나한테 뭐가 달라지냐"를 깊게 파고들 것
+- 독자 기준: AI 툴을 업무에 활용 중인 직장인, 중간 실력 유저
+- 각 섹션은 2~3문장으로 간결하게
 
 {COMMON_RULES}"""
 
 
 def build_prompt_c(content: str, url: str) -> str:
-    return f"""다음 X 게시물을 바탕으로 C타입 블로그 포스트를 작성해.
-C타입 형식: [주제] - 10분이면 충분해
+    return f"""다음 내용을 바탕으로 C타입 블로그 포스트를 작성해.
 
-X 내용: {content}
+내용: {content}
 원문 링크: {url}
 
 HTML 구조:
