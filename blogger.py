@@ -32,13 +32,11 @@ def post_to_blogger(access_token: str, title: str, html_content: str, image_url:
     ) if image_url else ''
 
     post_data = {
-        'kind': 'blogger#post',
         'title': title,
         'content': img_tag + html_content,
-        'labels': labels
     }
-    if image_url:
-        post_data['images'] = [{'url': image_url}]
+    if labels:
+        post_data['labels'] = labels
 
     data = json.dumps(post_data).encode()
     req = urllib.request.Request(url, data=data, headers={
