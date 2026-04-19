@@ -2,8 +2,8 @@ import os
 import re
 import json
 import urllib.request
-import urllib.parse
-from main import generate_post, fetch_x_content
+from main import fetch_content, classify_type, generate_html_post, generate_text_post
+from blogger import get_access_token, post_to_blogger
 
 TELEGRAM_TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 TELEGRAM_CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
@@ -67,13 +67,13 @@ def main():
 
         if chat_id != TELEGRAM_CHAT_ID:
             continue
-        if len(text) < 30:
+        if len(text) < 10:
             continue
 
         # URL이면 크롤링
         if re.match(r'https?://', text):
             send("🔍 URL 분석 중...")
-            content = fetch_x_content(text)
+            content = fetch_content(text)
             url = text
             if not content:
                 send("⚠️ 내용을 가져오지 못했어요. 텍스트를 직접 붙여넣어 주세요.")
@@ -85,14 +85,31 @@ def main():
         send("✍️ 글 생성 중...")
 
         try:
-            result = generate_post(content, url, 'auto')
+            post_type = classify_type(content)
+
+            # 구글 블로그용 HTML 생성 → 자동 포스팅
+            html_result = generate_html_post(content, url, post_type)
+            try:
+                access_token = get_access_token()
+                post_url = post_to_blogger(
+                    access_token,
+                    html_result['title'],
+                    html_result['html_content'],
+                    '',  # 이미지 없음
+                    html_result['labels']
+                )
+                send(f"✅ 구글 블로그 포스팅 완료!\n{post_url}")
+            except Exception as e:
+                send(f"⚠️ 구글 블로그 포스팅 실패: {e}")
+
+            # 네이버 블로그용 텍스트 생성 → Telegram 전송
+            text_post = generate_text_post(content, url, post_type)
+            send(f"📝 [네이버 블로그용]\n\n{text_post}")
+
         except Exception as e:
             send(f"❌ 글 생성 실패: {e}")
             continue
 
-        # 미리보기 전송
-        plain = strip_html(result['html_content'])
-        send(f"📝 {result['title']}\n\n{plain[:1000]}")
         break
 
 
